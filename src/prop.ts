@@ -1,10 +1,10 @@
-import * as mongoose from 'mongoose';
-import * as _ from 'lodash';
-
-import { schema, virtuals } from './data';
-import { isPrimitive, initAsObject, initAsArray, isString, isNumber, isObject } from './utils';
-import { InvalidPropError, NotNumberTypeError, NotStringTypeError, NoMetadataError } from './errors';
 import { ObjectID } from 'bson';
+import * as _ from 'lodash';
+import * as mongoose from 'mongoose';
+
+import { methods, schema, virtuals } from './data';
+import { InvalidPropError, NoMetadataError, NotNumberTypeError, NotStringTypeError } from './errors';
+import { initAsArray, initAsObject, isNumber, isObject, isPrimitive, isString } from './utils';
 
 export type Func = (...args: any[]) => any;
 
@@ -169,22 +169,34 @@ const baseProp = (rawOptions, Type, target, key, isArray = false) => {
     return;
   }
 
+  const createSchemaWithInstanceMethods = () => {
+    const schemaWithInstanceMethods = new mongoose.Schema(
+      { ...subSchema },
+      rawOptions._id === false ? { _id: false } : {},
+    );
+
+    const schemaInstanceMethods =
+      methods.instanceMethods[instance.constructor.name];
+    if (schemaInstanceMethods) {
+      schemaWithInstanceMethods.methods = schemaInstanceMethods;
+    }
+
+    return schemaWithInstanceMethods;
+  };
+
   if (isArray) {
     schema[name][key][0] = {
       ...schema[name][key][0],
       ...options,
-      ...subSchema,
+      type: createSchemaWithInstanceMethods(),
     };
     return;
   }
 
-  const Schema = mongoose.Schema;
-
-  const supressSubschemaId = rawOptions._id === false;
   schema[name][key] = {
     ...schema[name][key],
     ...options,
-    type: new Schema({ ...subSchema }, supressSubschemaId ? { _id: false } : {}),
+    type: createSchemaWithInstanceMethods(),
   };
   return;
 };
